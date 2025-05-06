@@ -87,7 +87,36 @@ class Syntactic:
 
     #Tipo --> Primitivo | [Primitivo]
     def tipo(self):
-        token = self
+    token = self.read_token[0]
 
+    if token == TOKEN.openBracket:
+        self.consume(TOKEN.openBracket)
+        self.primitivo()
+        self.consume(TOKEN.closeBracket)
+    else:
+        self.primitivo()
 
+    #Primitivo --> int | float | string
+    def primitivo(self):
+        token = self.read_token[0]
+    
+        if token == TOKEN.INT:
+            self.consume(TOKEN.INT)
+        elif token == TOKEN.FLOAT:
+            self.consume(TOKEN.FLOAT)
+        elif token == TOKEN.STRING:
+            self.consume(TOKEN.STRING)
+        else:
+            self.erro('Tipo primitivo esperado')
+
+    #ListaParam --> lambda | Param OpcParam
+    def lista_params(self):
+        token = self.read_token[0]
+    
+        if token in (TOKEN.INT, TOKEN.FLOAT, TOKEN.STRING, TOKEN.VOID, TOKEN.openBracket):
+            self.param()
+            self.opc_params()
+        else:
+            # ε (empty), nada a fazer
+            pass
 
