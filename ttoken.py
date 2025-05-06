@@ -49,9 +49,12 @@ ComBloco --> { ListaComando }
 #### EXPRESSOES (etapas da construcao da gramatica )
 
 #-- 1a versao (beta)
-Folha --> Valor | ident Recorte | ident ( ListaArgs ) | ( Exp ) | [ ListaExp ]
-Recorte --> lambda | [ OpcInt : OpcInt ]
-OpcInt --> lambda | valint
+Folha --> ValPrim | ident Recorte | ident ( ListaArgs ) | ( Exp ) | ValLista
+ValPrim --> valint | valfloat | valstring
+ValLista --> [ ListaExp ]
+Recorte --> lambda | [ OpcInt Recorte2 ]
+Recorte2 --> lambda | : OpcInt
+OpcInt --> lambda | Folha
 ListaArgs --> lambda | Exp RestoListaArgs
 RestoListaArgs --> lambda | , Exp RestoListaArgs
 ListaExp --> LAMBDA | Exp OpcListaExp
