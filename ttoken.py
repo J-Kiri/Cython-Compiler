@@ -30,7 +30,8 @@ OpcValor --> lambda | = Exp
 Comando --> ComAtrib | ComIf | ComFor | ComWhile |
 | ComReturn | ComContinue | ComBreak | ComEntrada
 | ComSaida | ComBloco
-ComAtrib --> ident = Exp ;
+ComAtrib --> ident PosicaoOpc = Exp ;
+PosicaoOpc --> LAMBDA | [ Exp ]ComIf --> if ( Exp ) Comando OpcElse
 ComIf --> if ( Exp ) Comando OpcElse
 OpcElse --> lambda | else Comando | elif ( Exp ) Comando OpcElse
 ComFor --> for ( ident = Exp ; Exp ; ident = Exp ) Comando
@@ -54,7 +55,7 @@ ValPrim --> valint | valfloat | valstring
 ValLista --> [ ListaExp ]
 Recorte --> lambda | [ OpcInt Recorte2 ]
 Recorte2 --> lambda | : OpcInt
-OpcInt --> lambda | Folha
+OpcInt --> lambda | Exp
 ListaArgs --> lambda | Exp RestoListaArgs
 RestoListaArgs --> lambda | , Exp RestoListaArgs
 ListaExp --> LAMBDA | Exp OpcListaExp

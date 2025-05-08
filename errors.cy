@@ -1,7 +1,7 @@
 # Programa exemplo na nossa linguagem Cython (mix C + Python)
 # leia 10 inteiros e os imprima em ordem crescente
 
-void main() {
+void main[) {
    [int] lista = [ ];
    int i, aux;
    for (i=1; i<=10; i=i+1) {
