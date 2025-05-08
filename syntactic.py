@@ -2,9 +2,9 @@ from lexic import TOKEN, Lexic
 from semantic import Semantic
 
 class Syntactic:
-    def __init__(self):
+    def __init__(self, lexic):
         self.read_token = None
-        self.lexic = Lexic
+        self.lexic = lexic
         self.target_name = 'target.out'
 
         self.semantic = Semantic(self.target_name)
@@ -221,12 +221,20 @@ class Syntactic:
         else:
             self.erro('Comando esperado')
 
-    #ComAtrib --> ident = Exp ;
+    #ComAtrib --> ident PosicaoOpc = Exp ;
     def com_atrib(self):
         self.consume(TOKEN.ident)
+        self.posicao_opc()  # Nova regra para posição opcional
         self.consume(TOKEN.equal)
         self.exp()
         self.consume(TOKEN.semiColon)
+
+    #PosicaoOpc --> LAMBDA | [ Exp ]ComIf --> if ( Exp ) Comando OpcElse
+    def posicao_opc(self):
+        if self.read_token[0] == TOKEN.openBracket:
+            self.consume(TOKEN.openBracket)
+            self.exp()
+            self.consume(TOKEN.closeBracket)
 
     #ComIf --> if ( Exp ) Comando OpcElse
     def com_if(self):
@@ -351,3 +359,254 @@ class Syntactic:
         self.consume(TOKEN.openBraces)
         self.lista_comando()
         self.consume(TOKEN.closeBraces)
+
+    #### EXPRESSOES (etapas da construcao da gramatica )
+    #Folha --> ValPrim | ident Recorte | ident ( ListaArgs ) | ( Exp ) | ValLista
+    def folha(self):
+        token = self.read_token[0]
+
+        if token in (TOKEN.valInt, TOKEN.valFloat, TOKEN.valString):
+            self.val_prim()
+        elif token == TOKEN.ident:
+            self.consume(TOKEN.ident)
+            if self.read_token[0] == TOKEN.openBracket:
+                self.recorte()
+            elif self.read_token[0] == TOKEN.openParenthesis:
+                self.consume(TOKEN.openParenthesis)
+                self.lista_args()
+                self.consume(TOKEN.closeParenthesis)
+            else:
+                # ident sozinho (ex: variável)
+                pass
+        elif token == TOKEN.openParenthesis:
+            self.consume(TOKEN.openParenthesis)
+            self.exp()
+            self.consume(TOKEN.closeParenthesis)
+        elif token == TOKEN.openBracket:
+            self.val_lista()
+        else:
+            self.erro('Folha esperada')
+
+    #ValPrim --> valint | valfloat | valstring
+    def val_prim(self):
+        token = self.read_token[0]
+
+        if token == TOKEN.valInt:
+            self.consume(TOKEN.valInt)
+        elif token == TOKEN.valFloat:
+            self.consume(TOKEN.valFloat)
+        elif token == TOKEN.valString:
+            self.consume(TOKEN.valString)
+
+    #ValLista --> [ ListaExp ]
+    def val_lista(self):
+        self.consume(TOKEN.openBracket)
+        self.lista_exp()
+        self.consume(TOKEN.closeBracket)
+
+    #Recorte --> lambda | [ OpcInt Recorte2 ]
+    def recorte(self):
+        if self.read_token[0] == TOKEN.openBracket:
+            self.consume(TOKEN.openBracket)
+            self.opc_int()
+            self.recorte2()
+            self.consume(TOKEN.closeBracket)
+        else:
+            pass
+
+    #Recorte2 --> lambda | : OpcInt
+    def recorte2(self):
+        if self.read_token[0] == TOKEN.colon:
+            self.consume(TOKEN.colon)
+            self.opc_int()
+        else:
+            pass
+
+    #OpcInt --> lambda | Exp
+    def opc_int(self):
+        if self.read_token[0] in (
+                TOKEN.valInt, TOKEN.valFloat, TOKEN.valString,
+                TOKEN.ident, TOKEN.openParenthesis, TOKEN.openBracket
+        ):
+            self.exp()
+        else:
+            pass
+
+    #ListaArgs --> lambda | Exp RestoListaArgs
+    def lista_args(self):
+        if self.read_token[0] in (
+                TOKEN.NOT, TOKEN.plus, TOKEN.minus,
+                TOKEN.ident, TOKEN.openParenthesis,
+                TOKEN.valInt, TOKEN.valFloat, TOKEN.valString,
+                TOKEN.openBracket
+        ):
+            self.exp()
+            self.resto_lista_args()
+        else:
+            pass
+
+    #RestoListaArgs --> lambda | , Exp RestoListaArgs
+    def resto_lista_args(self):
+        if self.read_token[0] == TOKEN.comma:
+            self.consume(TOKEN.comma)
+            self.exp()
+            self.resto_lista_args()
+        else:
+            pass
+
+    #ListaExp --> LAMBDA | Exp OpcListaExp
+    def lista_exp(self):
+        if self.read_token[0] in (
+                TOKEN.NOT, TOKEN.plus, TOKEN.minus,
+                TOKEN.ident, TOKEN.openParenthesis,
+                TOKEN.valInt, TOKEN.valFloat, TOKEN.valString,
+                TOKEN.openBracket
+        ):
+            self.exp()
+            self.opc_lista_exp()
+        else:
+            pass
+
+    #OpcListaExp --> LAMBDA | , Exp OpcListaExp
+    def opc_lista_exp(self):
+        if self.read_token[0] == TOKEN.comma:
+            self.consume(TOKEN.comma)
+            self.exp()
+            self.opc_lista_exp()
+        else:
+            pass
+
+    #Uno --> + Uno | - Uno | Folha
+    def uno(self):
+        token = self.read_token[0]
+
+        if token == TOKEN.plus:
+            self.consume(TOKEN.plus)
+            self.uno()
+        elif token == TOKEN.minus:
+            self.consume(TOKEN.minus)
+            self.uno()
+        else:
+            self.folha()
+
+    #Mult --> Uno RestoMult
+    def mult(self):
+        self.uno()
+        self.resto_mult()
+
+    #RestoMult --> lambda | * Uno RestoMult | / Uno RestoMult | mod Uno RestoMult | div Uno RestoMult
+    def resto_mult(self):
+        token = self.read_token[0]
+
+        if token == TOKEN.star:
+            self.consume(TOKEN.star)
+            self.uno()
+            self.resto_mult()
+        elif token == TOKEN.slash:
+            self.consume(TOKEN.slash)
+            self.uno()
+            self.resto_mult()
+        elif token == TOKEN.MOD:
+            self.consume(TOKEN.MOD)
+            self.uno()
+            self.resto_mult()
+        elif token == TOKEN.DIV:
+            self.consume(TOKEN.DIV)
+            self.uno()
+            self.resto_mult()
+        else:
+            pass
+
+
+    #Soma --> Mult RestoSoma
+    def soma(self):
+        self.mult()
+        self.resto_soma()
+
+    #RestoSoma --> lambda | + Mult RestoSoma | - Mult RestoSoma
+    def resto_soma(self):
+        token = self.read_token[0]
+
+        if token == TOKEN.plus:
+            self.consume(TOKEN.plus)
+            self.mult()
+            self.resto_soma()
+        elif token == TOKEN.minus:
+            self.consume(TOKEN.minus)
+            self.mult()
+            self.resto_soma()
+        else:
+            pass
+
+    #Rel --> Soma RestoRel
+    def rel(self):
+        self.soma()
+        self.resto_rel()
+
+    #RestoRel --> lambda | == Soma | != Soma | <= Soma | >= Soma | > Soma | < Soma
+    def resto_rel(self):
+        token = self.read_token[0]
+
+        if token == TOKEN.equalEqual:
+            self.consume(TOKEN.equalEqual)
+            self.soma()
+            self.resto_rel()
+        elif token == TOKEN.notEqual:
+            self.consume(TOKEN.notEqual)
+            self.soma()
+            self.resto_rel()
+        elif token == TOKEN.lessThanOrEqual:
+            self.consume(TOKEN.lessThanOrEqual)
+            self.soma()
+            self.resto_rel()
+        elif token == TOKEN.greaterThanOrEqual:
+            self.consume(TOKEN.greaterThanOrEqual)
+            self.soma()
+            self.resto_rel()
+        elif token == TOKEN.lessThan:
+            self.consume(TOKEN.lessThan)
+            self.soma()
+            self.resto_rel()
+        elif token == TOKEN.greaterThan:
+            self.consume(TOKEN.greaterThan)
+            self.soma()
+            self.resto_rel()
+        else:
+            pass
+
+    #Nao --> not Nao | Rel
+    def nao(self):
+        if self.read_token[0] == TOKEN.NOT:
+            self.consume(TOKEN.NOT)
+            self.nao()
+        else:
+            self.rel()
+
+    #Junc --> Nao RestoJunc
+    def junc(self):
+        self.nao()
+        self.resto_junc()
+
+    #RestoJunc --> lambda | and Nao RestoJunc
+    def resto_junc(self):
+        if self.read_token[0] == TOKEN.AND:
+            self.consume(TOKEN.AND)
+            self.nao()
+            self.resto_junc()
+        else:
+            pass
+
+    #Exp --> Junc RestoExp
+    def exp(self):
+        self.junc()
+        self.resto_exp()
+
+    #RestoExp --> lambda | or Junc RestoExp
+    def resto_exp(self):
+        if self.read_token[0] == TOKEN.OR:
+            self.consume(TOKEN.OR)
+            self.junc()
+            self.resto_exp()
+        else:
+            pass
+
