@@ -17,8 +17,23 @@ class Translator:
         self.file.close()
 
 if __name__ == '__main__':
-    trans = Translator("test.cy")
-    trans.inicialize()
-    trans.translate()
+    tests = [
+        "test.cy"
+        ,"testSliceList.cy"
+        ,"testForWrite.cy"
+        ,"testIfElseElif.cy"
+        ,"testMain.cy"
+        ,"testVecAtrib.cy"
+        ,"testInvFuncNoPar.cy"
+        ,"testInvIfNoPar.cy"
+        ,"testInvSemiCol.cy"
+    ]
 
-    trans.finalize()
+    for test in tests:
+        print("Testing " + test)
+        trans = Translator(test)
+        trans.inicialize()
+        trans.translate()
+
+        trans.finalize()
+        print("\n")

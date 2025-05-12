@@ -85,8 +85,6 @@ class Lexic:
                     return TOKEN.closeBraces, "}", lin, col
                 elif symbol == ";":
                     return TOKEN.semiColon, ";", lin, col
-                elif symbol == "=":
-                    return TOKEN.equal, "=", lin, col
                 elif symbol == ":":
                     return TOKEN.colon, ":", lin, col
                 elif symbol == "+":
@@ -98,10 +96,11 @@ class Lexic:
                 elif symbol == "/":
                     return TOKEN.slash, "/", lin, col
                 elif symbol == "=":
-                    if self.get_char() == "=":
+                    next_char = self.get_char()
+                    if next_char == "=":
                         return TOKEN.equalEqual, "==", lin, col
                     else:
-                        self.unget_char(symbol)
+                        self.unget_char(next_char)
                         return TOKEN.equal, "=", lin, col
                 elif symbol == "!":
                     if self.get_char() == "=":
@@ -224,7 +223,7 @@ class Lexic:
 if __name__ =='__main__':
     fileName = "test.cy"
     file = open(fileName, "r")
-    lexer = LEXIC(file)
+    lexer = Lexic(file)
     
     read = lexer.get_token()
     while not lexer.end_of_file():
