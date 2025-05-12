@@ -1,5 +1,6 @@
-from lexic import TOKEN, Lexic
-from semantic import Semantic
+from lexic import TOKEN
+from semantic import Semantic, semantic_error
+
 
 class Syntactic:
     def __init__(self, lexic):
@@ -16,6 +17,7 @@ class Syntactic:
             print('Success on translation!')
         except:
             pass
+
         self.semantic.finish()
 
     def consume(self, current_token):
@@ -46,7 +48,7 @@ class Syntactic:
             (token, lexeme, lin, col) = self.read_token
 
     # --- programa
-    #Prog -> empty | Func Prog
+    #Prog -> lambda | Func Prog
     def prog(self):
         token = self.read_token[0]
 
@@ -58,11 +60,19 @@ class Syntactic:
 
     #Func -> TipoRent ident ( ListParams ) Corpo
     def func(self):
-        self.tipo_ret()
+        ret_type = self.tipo_ret()
+        func_token = self.read_token
+
         self.consume(TOKEN.ident)
         self.consume(TOKEN.openParenthesis)
-        self.lista_params()
+
+        lista_params = self.lista_params()
+
         self.consume(TOKEN.closeParenthesis)
+
+        self.semantic.declare_func(func_token, ret_type, lista_params)
+        self.semantic.enter_function_scope(func_token[1])
+
         self.corpo()
 
     #TipoRet --> void | Tipo
@@ -71,18 +81,22 @@ class Syntactic:
 
         if token == TOKEN.VOID:
             self.consume(TOKEN.VOID)
+
+            return "void", False  # Void, it's not a list
         else:
-            self.tipo()
+            return self.tipo()
 
     # ListaParam --> lambda | Param OpcParam
     def lista_params(self):
         token = self.read_token[0]
 
         if token in (TOKEN.INT, TOKEN.FLOAT, TOKEN.STRING, TOKEN.VOID, TOKEN.openBracket):
-            self.param()
-            self.opc_params()
+            param = self.param()
+            others = self.opc_params()
+
+            return [param] + others
         else:
-            pass
+            return []
 
     #OpcParams --> lambda |, Param OpcParams
     def opc_params(self):
@@ -90,15 +104,20 @@ class Syntactic:
 
         if token == TOKEN.comma:
             self.consume(TOKEN.comma)
-            self.param()
-            self.opc_params()
+            param = self.param()
+            others = self.opc_params()
+
+            return [param] + others
         else:
-            pass
+            return []
 
     #Param --> Tipo ident
     def param(self):
-        self.tipo()
+        def_type = self.tipo()
+        token_id = self.read_token
         self.consume(TOKEN.ident)
+
+        return token_id, def_type
 
     #Corpo --> { ListaDeclara ListaComando }
     def corpo(self):
@@ -138,10 +157,12 @@ class Syntactic:
 
         if token == TOKEN.openBracket:
             self.consume(TOKEN.openBracket)
-            self.primitivo()
+            prim = self.primitivo()
             self.consume(TOKEN.closeBracket)
+
+            return prim, True
         else:
-            self.primitivo()
+            return self.primitivo(), False
 
     #Primitivo --> int | float | string
     def primitivo(self):
@@ -149,37 +170,45 @@ class Syntactic:
     
         if token == TOKEN.INT:
             self.consume(TOKEN.INT)
+            return "int"
         elif token == TOKEN.FLOAT:
             self.consume(TOKEN.FLOAT)
+            return "float"
         elif token == TOKEN.STRING:
             self.consume(TOKEN.STRING)
-        # else:
-            # self.erro('Tipo primitivo esperado')
+            return "string"
+        else:
+            semantic_error(token, token + " type undefined!")
+            return None
 
     #Declara --> Tipo ListaVar ;
     def declara(self):
-        self.tipo()
-        self.lista_var()
+        def_type = self.tipo()
+        self.lista_var(def_type)
         self.consume(TOKEN.semiColon)
 
     #ListaVar --> Var RestoListaVar
-    def lista_var(self):
-        self.var()
-        self.resto_lista_var()
+    def lista_var(self, def_type):
+        self.var(def_type)
+        self.resto_lista_var(def_type)
 
     #RestoListaVar --> lambda | , ListaVar
-    def resto_lista_var(self):
+    def resto_lista_var(self, def_type):
         token = self.read_token[0]
 
         if token == TOKEN.comma:
             self.consume(TOKEN.comma)
-            self.lista_var()
+            self.lista_var(def_type)
         else:
             pass
 
     #Var --> ident OpcValor
-    def var(self):
+    def var(self, def_type):
+        ident_token = self.read_token
         self.consume(TOKEN.ident)
+
+        self.semantic.declare_var(ident_token, def_type)
+
         self.opc_valor()
 
     #OpcValor --> lambda | = Exp
@@ -218,23 +247,38 @@ class Syntactic:
             self.com_saida()
         elif token == TOKEN.openBraces:
             self.com_bloco()
-        else:
-            self.erro('Comando esperado')
 
     #ComAtrib --> ident PosicaoOpc = Exp ;
     def com_atrib(self):
+        ident_token = self.read_token
+        name = ident_token[1]
         self.consume(TOKEN.ident)
-        self.posicao_opc()  # Nova regra para posição opcional
+
+        is_list = False
+        if self.read_token[0] == TOKEN.openBracket:
+            self.posicao_opc()
+            is_list = True
+
         self.consume(TOKEN.equal)
-        self.exp()
+        expression_type = self.exp()
+
+        var_type = self.semantic.get_var_info(name, ident_token)
+
+        if var_type[0] != expression_type:
+            semantic_error(ident_token, f"Cannot assign {expression_type} to variable '{name}' of type {var_type[0]}")
+
         self.consume(TOKEN.semiColon)
 
-    #PosicaoOpc --> LAMBDA | [ Exp ]ComIf --> if ( Exp ) Comando OpcElse
+    #PosicaoOpc --> lambda | [ Exp ]ComIf --> if ( Exp ) Comando OpcElse
     def posicao_opc(self):
-        if self.read_token[0] == TOKEN.openBracket:
+        token = self.read_token[0]
+
+        if token == TOKEN.openBracket:
             self.consume(TOKEN.openBracket)
             self.exp()
             self.consume(TOKEN.closeBracket)
+        else:
+            pass
 
     #ComIf --> if ( Exp ) Comando OpcElse
     def com_if(self):
@@ -351,7 +395,6 @@ class Syntactic:
             self.consume(TOKEN.comma)
             self.lista_out()
         else:
-            # λ
             pass
 
     #ComBloco --> { ListaComando }
@@ -366,26 +409,49 @@ class Syntactic:
         token = self.read_token[0]
 
         if token in (TOKEN.valInt, TOKEN.valFloat, TOKEN.valString):
-            self.val_prim()
+            return self.val_prim()
+
         elif token == TOKEN.ident:
+            ident_token = self.read_token
+            name = ident_token[1]
             self.consume(TOKEN.ident)
-            if self.read_token[0] == TOKEN.openBracket:
+
+            if token == TOKEN.openBracket:
                 self.recorte()
-            elif self.read_token[0] == TOKEN.openParenthesis:
+                def_type = self.semantic.get_var_info(name, ident_token)
+
+                if not def_type[1]:
+                    semantic_error(ident_token, f"Variable '{name}' is not a list")
+                return def_type[0]
+
+            elif token == TOKEN.openParenthesis:
                 self.consume(TOKEN.openParenthesis)
-                self.lista_args()
+                arg_types = self.lista_args()
                 self.consume(TOKEN.closeParenthesis)
+
+                ret_type, param_list, _ = self.semantic.get_func_info(name, ident_token)
+
+                if len(arg_types) != len(param_list):
+                    semantic_error(ident_token,f"Function '{name}' expects {len(param_list)} args, got {len(arg_types)}")
+
+                for i, ((_, expected), got) in enumerate(zip(param_list, arg_types)):
+                    if expected != got:
+                        semantic_error(ident_token,f"Arg {i + 1} of '{name}' expected {expected}, got {got}")
+                return ret_type[0]
             else:
-                # ident sozinho (ex: variável)
-                pass
+                def_type = self.semantic.get_var_info(name, ident_token)
+                return def_type[0]
+
         elif token == TOKEN.openParenthesis:
             self.consume(TOKEN.openParenthesis)
-            self.exp()
+            def_type = self.exp()
             self.consume(TOKEN.closeParenthesis)
+            return def_type
+
         elif token == TOKEN.openBracket:
-            self.val_lista()
+            return self.val_lista()
         else:
-            self.erro('Folha esperada')
+            semantic_error(self.read_token, "Invalid expression")
 
     #ValPrim --> valint | valfloat | valstring
     def val_prim(self):
@@ -393,16 +459,27 @@ class Syntactic:
 
         if token == TOKEN.valInt:
             self.consume(TOKEN.valInt)
+            return "int"
         elif token == TOKEN.valFloat:
             self.consume(TOKEN.valFloat)
+            return "float"
         elif token == TOKEN.valString:
             self.consume(TOKEN.valString)
+            return "string"
 
     #ValLista --> [ ListaExp ]
     def val_lista(self):
         self.consume(TOKEN.openBracket)
-        self.lista_exp()
+        def_type = None
+
+        if self.read_token[0] not in (TOKEN.closeBracket, ):
+            def_type = self.lista_exp()
+            self.opc_lista_exp(def_type)
+        else:
+            def_type = "int"
+
         self.consume(TOKEN.closeBracket)
+        return def_type
 
     #Recorte --> lambda | [ OpcInt Recorte2 ]
     def recorte(self):
@@ -434,23 +511,33 @@ class Syntactic:
 
     #ListaArgs --> lambda | Exp RestoListaArgs
     def lista_args(self):
+        types = []
+
         if self.read_token[0] in (
                 TOKEN.NOT, TOKEN.plus, TOKEN.minus,
                 TOKEN.ident, TOKEN.openParenthesis,
                 TOKEN.valInt, TOKEN.valFloat, TOKEN.valString,
                 TOKEN.openBracket
         ):
-            self.exp()
-            self.resto_lista_args()
+            def_type = self.exp()
+            types.append(def_type)
+            types += self.resto_lista_args()
+
+            return types
         else:
             pass
 
     #RestoListaArgs --> lambda | , Exp RestoListaArgs
     def resto_lista_args(self):
+        types = []
+
         if self.read_token[0] == TOKEN.comma:
             self.consume(TOKEN.comma)
-            self.exp()
-            self.resto_lista_args()
+            def_type = self.exp()
+            types.append(def_type)
+            types += self.resto_lista_args()
+
+            return types
         else:
             pass
 
@@ -468,11 +555,15 @@ class Syntactic:
             pass
 
     #OpcListaExp --> LAMBDA | , Exp OpcListaExp
-    def opc_lista_exp(self):
+    def opc_lista_exp(self, expected_type):
         if self.read_token[0] == TOKEN.comma:
             self.consume(TOKEN.comma)
-            self.exp()
-            self.opc_lista_exp()
+            def_type = self.exp()
+
+            if def_type != expected_type:
+                semantic_error(self.read_token, f"List elements must have same type: Expected {expected_type}, got {def_type}")
+
+            self.opc_lista_exp(expected_type)
         else:
             pass
 
@@ -482,131 +573,122 @@ class Syntactic:
 
         if token == TOKEN.plus:
             self.consume(TOKEN.plus)
-            self.uno()
+            return self.uno()
         elif token == TOKEN.minus:
             self.consume(TOKEN.minus)
-            self.uno()
+            return self.uno()
         else:
-            self.folha()
+            return self.folha()
 
     #Mult --> Uno RestoMult
     def mult(self):
-        self.uno()
-        self.resto_mult()
+        def_type = self.uno()
+        return self.resto_mult(def_type)
 
     #RestoMult --> lambda | * Uno RestoMult | / Uno RestoMult | mod Uno RestoMult | div Uno RestoMult
-    def resto_mult(self):
+    def resto_mult(self, left_type):
         token = self.read_token[0]
 
-        if token == TOKEN.star:
-            self.consume(TOKEN.star)
-            self.uno()
-            self.resto_mult()
-        elif token == TOKEN.slash:
-            self.consume(TOKEN.slash)
-            self.uno()
-            self.resto_mult()
-        elif token == TOKEN.MOD:
-            self.consume(TOKEN.MOD)
-            self.uno()
-            self.resto_mult()
-        elif token == TOKEN.DIV:
-            self.consume(TOKEN.DIV)
-            self.uno()
-            self.resto_mult()
-        else:
-            pass
+        if token in (TOKEN.star, TOKEN.slash, TOKEN.MOD, TOKEN.DIV):
+            self.consume(token)
+            right_type = self.uno()
 
+            if left_type != right_type:
+                semantic_error(self.read_token, f"Type mismatch in multiplication/division: {left_type} and {right_type}")
+
+            return self.resto_mult(left_type)
+        else:
+            return left_type
 
     #Soma --> Mult RestoSoma
     def soma(self):
-        self.mult()
-        self.resto_soma()
+        def_type = self.mult()
+        return self.resto_soma(def_type)
 
     #RestoSoma --> lambda | + Mult RestoSoma | - Mult RestoSoma
-    def resto_soma(self):
+    def resto_soma(self, tipo_esq):
         token = self.read_token[0]
 
-        if token == TOKEN.plus:
-            self.consume(TOKEN.plus)
-            self.mult()
-            self.resto_soma()
-        elif token == TOKEN.minus:
-            self.consume(TOKEN.minus)
-            self.mult()
-            self.resto_soma()
+        if token == TOKEN.plus or token == TOKEN.minus:
+            self.consume(token)
+            tipo_dir = self.mult()
+
+            if tipo_esq != tipo_dir:
+                semantic_error(self.read_token, f"Type mismatch in addition/subtraction: {tipo_esq} and {tipo_dir}")
+
+            return self.resto_soma(tipo_esq)
         else:
-            pass
+            return tipo_esq
 
     #Rel --> Soma RestoRel
     def rel(self):
-        self.soma()
-        self.resto_rel()
+        def_type = self.soma()
+        return self.resto_rel(def_type)
 
     #RestoRel --> lambda | == Soma | != Soma | <= Soma | >= Soma | > Soma | < Soma
-    def resto_rel(self):
+    def resto_rel(self, left_type):
         token = self.read_token[0]
 
-        if token == TOKEN.equalEqual:
-            self.consume(TOKEN.equalEqual)
-            self.soma()
-            self.resto_rel()
-        elif token == TOKEN.notEqual:
-            self.consume(TOKEN.notEqual)
-            self.soma()
-            self.resto_rel()
-        elif token == TOKEN.lessThanOrEqual:
-            self.consume(TOKEN.lessThanOrEqual)
-            self.soma()
-            self.resto_rel()
-        elif token == TOKEN.greaterThanOrEqual:
-            self.consume(TOKEN.greaterThanOrEqual)
-            self.soma()
-            self.resto_rel()
-        elif token == TOKEN.lessThan:
-            self.consume(TOKEN.lessThan)
-            self.soma()
-            self.resto_rel()
-        elif token == TOKEN.greaterThan:
-            self.consume(TOKEN.greaterThan)
-            self.soma()
-            self.resto_rel()
+        operadores = {
+            TOKEN.equalEqual, TOKEN.notEqual, TOKEN.lessThanOrEqual,
+            TOKEN.greaterThanOrEqual, TOKEN.lessThan, TOKEN.greaterThan
+        }
+
+        if token in operadores:
+            self.consume(token)
+            right_type = self.soma()
+
+            if left_type != right_type:
+                semantic_error(self.read_token,
+                               f"Incompatible types in relational operation: {left_type} and {right_type}")
+
+            return self.resto_rel("int")  # Comparações sempre retornam int (boolean)
         else:
-            pass
+            return left_type
 
     #Nao --> not Nao | Rel
     def nao(self):
         if self.read_token[0] == TOKEN.NOT:
             self.consume(TOKEN.NOT)
-            self.nao()
+            def_type = self.nao()
+
+            if type != "int":
+                semantic_error(self.read_token, f"'not' operation requires boolean (int), got {def_type}")
         else:
-            self.rel()
+            return self.rel()
 
     #Junc --> Nao RestoJunc
     def junc(self):
-        self.nao()
-        self.resto_junc()
+        tipo = self.nao()
+        return self.resto_junc(tipo)
 
     #RestoJunc --> lambda | and Nao RestoJunc
-    def resto_junc(self):
+    def resto_junc(self, left_type):
         if self.read_token[0] == TOKEN.AND:
             self.consume(TOKEN.AND)
-            self.nao()
-            self.resto_junc()
+            right_type = self.nao()
+
+            if left_type != "int" or right_type != "int":
+                semantic_error(self.read_token, f"Logical 'and' requires boolean (int) operands")
+
+            return self.resto_junc("int")
         else:
-            pass
+            return left_type
 
     #Exp --> Junc RestoExp
     def exp(self):
-        self.junc()
-        self.resto_exp()
+        tipo = self.junc()
+        return self.resto_exp(tipo)
 
     #RestoExp --> lambda | or Junc RestoExp
-    def resto_exp(self):
+    def resto_exp(self, left_type):
         if self.read_token[0] == TOKEN.OR:
             self.consume(TOKEN.OR)
-            self.junc()
-            self.resto_exp()
-        else:
-            pass
+            right_type = self.junc()
 
+            if left_type != "int" or right_type != "int":
+                semantic_error(self.read_token, f"Logical 'or' requires boolean (int) operands")
+
+            return self.resto_exp("int")
+        else:
+            return left_type

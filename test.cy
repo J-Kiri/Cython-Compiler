@@ -27,7 +27,7 @@ void main() {
       while (i < tam) {
           if (ordenada[i] > ordenada[i+1]) {
              aux = ordenada[i+1];
-             ordenada[i+1] = ordenada[i]
+             ordenada[i+1] = ordenada[i];
              ordenada[i] = aux;
              i = i + 1;
           } else break;
