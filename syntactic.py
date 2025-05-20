@@ -17,7 +17,6 @@ class Syntactic:
             print('Success on translation!')
         except:
             pass
-
         self.semantic.finish()
 
     def consume(self, current_token):
@@ -179,7 +178,7 @@ class Syntactic:
             return "string"
         else:
             semantic_error(token, token + " type undefined!")
-            return None
+        pass
 
     #Declara --> Tipo ListaVar ;
     def declara(self):
@@ -416,15 +415,16 @@ class Syntactic:
             name = ident_token[1]
             self.consume(TOKEN.ident)
 
-            if token == TOKEN.openBracket:
-                self.recorte()
-                def_type = self.semantic.get_var_info(name, ident_token)
-
-                if not def_type[1]:
+            if self.read_token[0] == TOKEN.openBracket:
+                tipo = self.semantic.get_var_info(name, ident_token)
+                if not tipo[1]:  # tipo[1] indica se é lista
                     semantic_error(ident_token, f"Variable '{name}' is not a list")
-                return def_type[0]
+                self.consume(TOKEN.openBracket)
+                self.exp()
+                self.consume(TOKEN.closeBracket)
+                return tipo[0]  # retorno do tipo do conteúdo da lista
 
-            elif token == TOKEN.openParenthesis:
+            elif self.read_token[0] == TOKEN.openParenthesis:
                 self.consume(TOKEN.openParenthesis)
                 arg_types = self.lista_args()
                 self.consume(TOKEN.closeParenthesis)
@@ -432,15 +432,18 @@ class Syntactic:
                 ret_type, param_list, _ = self.semantic.get_func_info(name, ident_token)
 
                 if len(arg_types) != len(param_list):
-                    semantic_error(ident_token,f"Function '{name}' expects {len(param_list)} args, got {len(arg_types)}")
+                    semantic_error(ident_token,
+                                   f"Function '{name}' expects {len(param_list)} args, got {len(arg_types)}")
 
                 for i, ((_, expected), got) in enumerate(zip(param_list, arg_types)):
                     if expected != got:
-                        semantic_error(ident_token,f"Arg {i + 1} of '{name}' expected {expected}, got {got}")
+                        semantic_error(ident_token, f"Arg {i + 1} of '{name}' expected {expected}, got {got}")
+
                 return ret_type[0]
+
             else:
-                def_type = self.semantic.get_var_info(name, ident_token)
-                return def_type[0]
+                tipo = self.semantic.get_var_info(name, ident_token)
+                return tipo[0]
 
         elif token == TOKEN.openParenthesis:
             self.consume(TOKEN.openParenthesis)
@@ -450,6 +453,7 @@ class Syntactic:
 
         elif token == TOKEN.openBracket:
             return self.val_lista()
+
         else:
             semantic_error(self.read_token, "Invalid expression")
 
@@ -466,20 +470,19 @@ class Syntactic:
         elif token == TOKEN.valString:
             self.consume(TOKEN.valString)
             return "string"
+        return None
 
     #ValLista --> [ ListaExp ]
     def val_lista(self):
         self.consume(TOKEN.openBracket)
-        def_type = None
 
-        if self.read_token[0] not in (TOKEN.closeBracket, ):
-            def_type = self.lista_exp()
-            self.opc_lista_exp(def_type)
-        else:
-            def_type = "int"
-
+        element_types = self.lista_exp()
         self.consume(TOKEN.closeBracket)
-        return def_type
+
+        if len(element_types) == 0:
+            return "int"
+        else:
+            return element_types[0]
 
     #Recorte --> lambda | [ OpcInt Recorte2 ]
     def recorte(self):
@@ -488,6 +491,7 @@ class Syntactic:
             self.opc_int()
             self.recorte2()
             self.consume(TOKEN.closeBracket)
+            return "int"
         else:
             pass
 
@@ -503,9 +507,10 @@ class Syntactic:
     def opc_int(self):
         if self.read_token[0] in (
                 TOKEN.valInt, TOKEN.valFloat, TOKEN.valString,
-                TOKEN.ident, TOKEN.openParenthesis, TOKEN.openBracket
+                TOKEN.ident, TOKEN.openParenthesis, TOKEN.openBracket,
+                TOKEN.NOT, TOKEN.plus, TOKEN.minus
         ):
-            self.exp()
+            return self.exp()
         else:
             pass
 
@@ -525,7 +530,7 @@ class Syntactic:
 
             return types
         else:
-            pass
+            return []
 
     #RestoListaArgs --> lambda | , Exp RestoListaArgs
     def resto_lista_args(self):
@@ -537,25 +542,28 @@ class Syntactic:
             types.append(def_type)
             types += self.resto_lista_args()
 
-            return types
-        else:
-            pass
+        return types
 
     #ListaExp --> LAMBDA | Exp OpcListaExp
     def lista_exp(self):
+        types = []
+
         if self.read_token[0] in (
                 TOKEN.NOT, TOKEN.plus, TOKEN.minus,
                 TOKEN.ident, TOKEN.openParenthesis,
                 TOKEN.valInt, TOKEN.valFloat, TOKEN.valString,
                 TOKEN.openBracket
         ):
-            self.exp()
-            self.opc_lista_exp()
-        else:
-            pass
+            first_type = self.exp()
+            types.append(first_type)
+            types += self.opc_lista_exp(first_type)
+
+        return types
 
     #OpcListaExp --> LAMBDA | , Exp OpcListaExp
     def opc_lista_exp(self, expected_type):
+        types = []
+
         if self.read_token[0] == TOKEN.comma:
             self.consume(TOKEN.comma)
             def_type = self.exp()
@@ -563,9 +571,12 @@ class Syntactic:
             if def_type != expected_type:
                 semantic_error(self.read_token, f"List elements must have same type: Expected {expected_type}, got {def_type}")
 
-            self.opc_lista_exp(expected_type)
+            types.append(def_type)
+            types += self.opc_lista_exp(expected_type)
         else:
             pass
+
+        return types
 
     #Uno --> + Uno | - Uno | Folha
     def uno(self):
@@ -606,19 +617,19 @@ class Syntactic:
         return self.resto_soma(def_type)
 
     #RestoSoma --> lambda | + Mult RestoSoma | - Mult RestoSoma
-    def resto_soma(self, tipo_esq):
+    def resto_soma(self, left_type):
         token = self.read_token[0]
 
         if token == TOKEN.plus or token == TOKEN.minus:
             self.consume(token)
-            tipo_dir = self.mult()
+            right_type = self.mult()
 
-            if tipo_esq != tipo_dir:
-                semantic_error(self.read_token, f"Type mismatch in addition/subtraction: {tipo_esq} and {tipo_dir}")
+            if left_type != right_type:
+                semantic_error(self.read_token, f"Type mismatch in addition/subtraction: {left_type} and {right_type}")
 
-            return self.resto_soma(tipo_esq)
+            return self.resto_soma(left_type)
         else:
-            return tipo_esq
+            return left_type
 
     #Rel --> Soma RestoRel
     def rel(self):
@@ -654,8 +665,11 @@ class Syntactic:
 
             if type != "int":
                 semantic_error(self.read_token, f"'not' operation requires boolean (int), got {def_type}")
+                return None
         else:
             return self.rel()
+
+        return None
 
     #Junc --> Nao RestoJunc
     def junc(self):

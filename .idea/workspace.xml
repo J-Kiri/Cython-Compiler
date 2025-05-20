@@ -5,22 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="ec4987ff-f365-487a-bd67-92fc3f3dbf09" name="Changes" comment="Test">
-      <change afterPath="$PROJECT_DIR$/testForWrite.cy" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/testIfElseElif.cy" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/testInvFuncNoPar.cy" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/testInvIfNoPar.cy" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/testInvSemiCol.cy" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/testMain.cy" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/testSliceList.cy" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/testVecAtrib.cy" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/errors.cy" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/lexic.py" beforeDir="false" afterPath="$PROJECT_DIR$/lexic.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/semantic.py" beforeDir="false" afterPath="$PROJECT_DIR$/semantic.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/syntactic.py" beforeDir="false" afterPath="$PROJECT_DIR$/syntactic.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/test.cy" beforeDir="false" afterPath="$PROJECT_DIR$/test.cy" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -58,7 +45,7 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "Python.Main.py.executor": "Run",
+    "Python.Main.py.executor": "Debug",
     "Python.main.executor": "Run",
     "Python.syntactic.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
@@ -84,7 +71,6 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="SDK_NAME" value="Python 3.11" />
       <option name="WORKING_DIRECTORY" value="" />
       <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
@@ -151,9 +137,25 @@
     <MESSAGE value="More syntactic declarations" />
     <option name="LAST_COMMIT_MESSAGE" value="More syntactic declarations" />
   </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/syntactic.py</url>
+          <line>529</line>
+          <option name="timeStamp" value="15" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+    <watches-manager>
+      <configuration name="PythonConfigurationType">
+        <watch expression="self.read_token[0]" language="Python" />
+      </configuration>
+    </watches-manager>
+  </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/Cython_Compiler$Main_py.coverage" NAME="Main.py Coverage Results" MODIFIED="1747015584791" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
+    <SUITE FILE_PATH="coverage/Cython_Compiler$Main_py.coverage" NAME="Main.py Coverage Results" MODIFIED="1747784050641" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
+    <SUITE FILE_PATH="coverage/Cython_Compiler$main.coverage" NAME="main Coverage Results" MODIFIED="1747779200817" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
     <SUITE FILE_PATH="coverage/Cython_Compiler$syntactic.coverage" NAME="syntactic Coverage Results" MODIFIED="1746572911576" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Cython_Compiler$main.coverage" NAME="main Coverage Results" MODIFIED="1746973774775" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>
