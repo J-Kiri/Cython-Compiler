@@ -18,8 +18,8 @@ class Translator:
 
 if __name__ == '__main__':
     tests = [
-        "test.cy"
-        # ,"testSliceList.cy"
+        # "test.cy",
+        "testSliceList.cy"
         # ,"testForWrite.cy"
         # ,"testIfElseElif.cy"
         # ,"testMain.cy"

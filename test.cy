@@ -24,7 +24,9 @@
 
 void main() {
    [int] lista = [ ];
+   [int] ordenada;
    int i, aux;
+
    for (i=1; i<=10; i=i+1) {
       write("Forneca o ", i, "o inteiro: ");
       read(aux);

@@ -19,6 +19,7 @@ class Lexic:
         
         car = self.code[self.indexCode]
         self.indexCode += 1
+        print(f"{car}")  # Debug
         if car == '\n'or (car == '\r' and self.code[self.indexCode:self.indexCode+1] != '\n'):
             self.line += 1
             self.column = 0
@@ -62,7 +63,9 @@ class Lexic:
         
         while True:
             if state == 1:
-                if symbol.isalpha():
+                if isinstance(symbol, tuple) and symbol[0] == TOKEN.EOF:
+                    return symbol
+                elif symbol.isalpha():
                     state = 2 # Identifiers, Reserved Words
                 elif symbol.isdigit():
                     state = 3 # Integers
@@ -120,8 +123,6 @@ class Lexic:
                     else:
                         self.unget_char(symbol)
                         return TOKEN.lessThan, "<", lin, col
-                elif symbol == "eof":
-                    return TOKEN.EOF, "eof", lin, col
                 else:
                     lexeme += symbol
                     return TOKEN.ERROR, lexeme, lin, col
