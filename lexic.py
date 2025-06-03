@@ -15,11 +15,10 @@ class Lexic:
     
     def get_char(self):
         if self.end_of_file():
-            return TOKEN.EOF, "EOF", self.line, self.column
+            return '\0'
         
         car = self.code[self.indexCode]
         self.indexCode += 1
-        print(f"{car}")  # Debug
         if car == '\n'or (car == '\r' and self.code[self.indexCode:self.indexCode+1] != '\n'):
             self.line += 1
             self.column = 0
@@ -57,14 +56,14 @@ class Lexic:
                     
             while symbol in [' ', '\t', '\n', '\r']:    # Whitespace
                 symbol = self.get_char()
-                
+
         lin = self.line
         col = self.column
         
         while True:
             if state == 1:
-                if isinstance(symbol, tuple) and symbol[0] == TOKEN.EOF:
-                    return symbol
+                if symbol == "\0":
+                    return TOKEN.EOF, "EOF", lin, col
                 elif symbol.isalpha():
                     state = 2 # Identifiers, Reserved Words
                 elif symbol.isdigit():

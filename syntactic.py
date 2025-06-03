@@ -14,12 +14,7 @@ class Syntactic:
         self.read_token = self.lexic.get_token()
         try:
             self.prog()
-            if self.read_token[0] != TOKEN.EOF:
-                token, lexeme, lin, col = self.read_token
-                print(f"Error on line {lin}, column {col}: Unexpected token '{lexeme}' at the end of the file.")
-            else:
-                print('Success on translation!')
-
+            print('Success on translation!')
         except:
             pass
         self.semantic.finish()
@@ -209,53 +204,11 @@ class Syntactic:
     #Var --> ident OpcValor
     def var(self, def_type):
         ident_token = self.read_token
-        name = ident_token[1]
         self.consume(TOKEN.ident)
 
         self.semantic.declare_var(ident_token, def_type)
 
-        if self.read_token[0] == TOKEN.equal:
-            self.consume(TOKEN.equal)
-            if def_type[1]:  # Se for uma lista
-                if self.read_token[0] == TOKEN.openBracket:
-                    # Pode ser uma lista literal ou um slice
-                    if self.lookahead_is_slice():  # Verifica se é um slice
-                        self.exp()  # Processa o slice como uma expressão
-                    else:
-                        self.val_lista()  # Processa como lista literal
-                else:
-                    semantic_error(ident_token, f"Expected list value for list variable '{name}'")
-            else:
-                self.exp()  # Processa expressão normal
-
-    def lookahead_is_slice(self):
-        # Verifica se o próximo token é um slice (contém ':')
-        saved_pos = self.lexic.indexCode
-        saved_token = self.read_token
-
-        try:
-            self.consume(TOKEN.openBracket)
-            # Avança até encontrar ':' ou ']'
-            while True:
-                token = self.lexic.get_token()
-                if token[0] == TOKEN.colon:
-                    return True
-                if token[0] == TOKEN.closeBracket:
-                    return False
-        finally:
-            self.lexic.indexCode = saved_pos
-            self.read_token = saved_token
-
-    def lookahead(self, n=1):
-        # Função para ver tokens à frente sem consumi-los
-        saved_pos = self.lexic.indexCode
-        saved_token = self.read_token
-        token = None
-        for _ in range(n):
-            token = self.lexic.get_token()
-        self.lexic.indexCode = saved_pos
-        self.read_token = saved_token
-        return token[0] if token else None
+        self.opc_valor()
 
     #OpcValor --> lambda | = Exp
     def opc_valor(self):
@@ -354,12 +307,10 @@ class Syntactic:
 
     #ComFor --> for ( ident = Exp ; Exp ; ident = Exp ) Comando | foreach ident = Exp : Comando
     def com_for(self):
-        if self.read_token[0] == TOKEN.FOR:
+        token = self.read_token[0]
+
+        if token == TOKEN.FOR:
             self.consume(TOKEN.FOR)
-
-            if self.read_token[0] != TOKEN.openParenthesis:
-                semantic_error(self.read_token, "Missing '(' after command 'for'")
-
             self.consume(TOKEN.openParenthesis)
             self.consume(TOKEN.ident)
             self.consume(TOKEN.equal)
@@ -372,8 +323,7 @@ class Syntactic:
             self.exp()
             self.consume(TOKEN.closeParenthesis)
             self.comando()
-
-        elif self.read_token[0] == TOKEN.FOREACH:
+        elif token == TOKEN.FOREACH:
             self.consume(TOKEN.FOREACH)
             self.consume(TOKEN.ident)
             self.consume(TOKEN.equal)
@@ -459,43 +409,51 @@ class Syntactic:
 
         if token in (TOKEN.valInt, TOKEN.valFloat, TOKEN.valString):
             return self.val_prim()
+
         elif token == TOKEN.ident:
             ident_token = self.read_token
             name = ident_token[1]
             self.consume(TOKEN.ident)
 
             if self.read_token[0] == TOKEN.openBracket:
-                type = self.semantic.get_var_info(name, ident_token)
-                if not type[1]:  # type[1] indica se é lista
+                tipo = self.semantic.get_var_info(name, ident_token)
+                if not tipo[1]:  # tipo[1] indica se é lista
                     semantic_error(ident_token, f"Variable '{name}' is not a list")
+                self.consume(TOKEN.openBracket)
+                self.exp()
+                self.consume(TOKEN.closeBracket)
+                return tipo[0]  # retorno do tipo do conteúdo da lista
 
-                return self.recorte()
             elif self.read_token[0] == TOKEN.openParenthesis:
                 self.consume(TOKEN.openParenthesis)
                 arg_types = self.lista_args()
                 self.consume(TOKEN.closeParenthesis)
 
-                return self.semantic.get_func_info(name, ident_token)[0][0]
+                ret_type, param_list, _ = self.semantic.get_func_info(name, ident_token)
 
                 if len(arg_types) != len(param_list):
-                    semantic_error(ident_token, f"Function '{name}' expects {len(param_list)} args, got {len(arg_types)}")
+                    semantic_error(ident_token,
+                                   f"Function '{name}' expects {len(param_list)} args, got {len(arg_types)}")
 
-                for i, ((_, expected), got) in enumerate(zip(param_list, arg_types)):
-                    if expected[0] != got:
+                for i, ((_, (expected, _)), got) in enumerate(zip(param_list, arg_types)):
+                    if expected != got:
                         semantic_error(ident_token, f"Arg {i + 1} of '{name}' expected {expected}, got {got}")
 
                 return ret_type[0]
 
             else:
-                type = self.semantic.get_var_info(name, ident_token)
-                return type[0]
+                tipo = self.semantic.get_var_info(name, ident_token)
+                return tipo[0]
+
         elif token == TOKEN.openParenthesis:
             self.consume(TOKEN.openParenthesis)
             def_type = self.exp()
             self.consume(TOKEN.closeParenthesis)
             return def_type
+
         elif token == TOKEN.openBracket:
             return self.val_lista()
+
         else:
             semantic_error(self.read_token, "Invalid expression")
 
@@ -528,24 +486,22 @@ class Syntactic:
 
     #Recorte --> lambda | [ OpcInt Recorte2 ]
     def recorte(self):
-        self.consume(TOKEN.openBracket)
-
-        if self.read_token[0] == TOKEN.colon:   # Caso [:]
-            self.consume(TOKEN.colon)
-            if self.read_token[0] != TOKEN.closeBracket:    # Caso [:exp]
-                self.exp()
+        if self.read_token[0] == TOKEN.openBracket:
+            self.consume(TOKEN.openBracket)
+            self.opc_int()
+            self.recorte2()
             self.consume(TOKEN.closeBracket)
-            return
+            return "int"
+        else:
+            pass
 
-        self.exp()  # Caso [exp]
-
-        if self.read_token[0] == TOKEN.colon:   # Caso [exp:]
+    #Recorte2 --> lambda | : OpcInt
+    def recorte2(self):
+        if self.read_token[0] == TOKEN.colon:
             self.consume(TOKEN.colon)
-            if self.read_token[0] != TOKEN.closeBracket:    # Caso [exp:exp]
-                self.exp()
-
-        self.consume(TOKEN.closeBracket)
-        return "int"
+            self.opc_int()
+        else:
+            pass
 
     #OpcInt --> lambda | Exp
     def opc_int(self):
@@ -717,8 +673,8 @@ class Syntactic:
 
     #Junc --> Nao RestoJunc
     def junc(self):
-        type = self.nao()
-        return self.resto_junc(type)
+        tipo = self.nao()
+        return self.resto_junc(tipo)
 
     #RestoJunc --> lambda | and Nao RestoJunc
     def resto_junc(self, left_type):
@@ -735,8 +691,8 @@ class Syntactic:
 
     #Exp --> Junc RestoExp
     def exp(self):
-        type = self.junc()
-        return self.resto_exp(type)
+        tipo = self.junc()
+        return self.resto_exp(tipo)
 
     #RestoExp --> lambda | or Junc RestoExp
     def resto_exp(self, left_type):
