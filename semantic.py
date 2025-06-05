@@ -36,8 +36,10 @@ class Semantic:
         (_, param_list, scope) = self.global_table[name]
 
         self.current_scope = scope
-        for(param_token, def_type) in param_list:
-            self.declare_var(param_token, def_type)
+        for (token_param, def_type) in param_list:
+            if token_param[1] in self.current_scope:
+                semantic_error(token_param, f"Variable '{token_param[1]}' already declared")
+            self.declare_var(token_param, def_type)
 
     # Verify the type and existence of ident
     def is_var(self, name):

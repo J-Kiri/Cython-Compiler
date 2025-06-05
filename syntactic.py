@@ -159,9 +159,9 @@ class Syntactic:
             prim = self.primitivo()
             self.consume(TOKEN.closeBracket)
 
-            return prim, True
+            return (prim, True)
         else:
-            return self.primitivo(), False
+            return (self.primitivo(), False)
 
     #Primitivo --> int | float | string
     def primitivo(self):
@@ -208,15 +208,19 @@ class Syntactic:
 
         self.semantic.declare_var(ident_token, def_type)
 
-        self.opc_valor()
+        self.opc_valor(def_type)
 
     #OpcValor --> lambda | = Exp
-    def opc_valor(self):
+    def opc_valor(self, def_type):
         token = self.read_token[0]
 
         if token == TOKEN.equal:
             self.consume(TOKEN.equal)
-            self.exp()
+            expression_type = self.exp()  # Retorna (tipo, is_list)
+
+            # Verifica se o tipo da expressão é compatível com o tipo declarado
+            if expression_type[0] != def_type[0] or expression_type[1] != def_type[1]:
+                semantic_error(self.read_token, f"Type mismatch: declared {def_type[0]}{'[]' if def_type[1] else ''} " + f"but got {expression_type[0]}{'[]' if expression_type[1] else ''}")
         else:
             pass
 
@@ -263,8 +267,8 @@ class Syntactic:
 
         var_type = self.semantic.get_var_info(name, ident_token)
 
-        if var_type[0] != expression_type:
-            semantic_error(ident_token, f"Cannot assign {expression_type} to variable '{name}' of type {var_type[0]}")
+        if var_type[0] != expression_type or var_type[1] != is_list:
+            semantic_error(ident_token, f"Cannot assign {expression_type}{'[]' if is_list else ''} to variable '{name}' of type {var_type}")
 
         self.consume(TOKEN.semiColon)
 
@@ -435,11 +439,11 @@ class Syntactic:
                     semantic_error(ident_token,
                                    f"Function '{name}' expects {len(param_list)} args, got {len(arg_types)}")
 
-                for i, ((_, (expected, _)), got) in enumerate(zip(param_list, arg_types)):
-                    if expected != got:
-                        semantic_error(ident_token, f"Arg {i + 1} of '{name}' expected {expected}, got {got}")
+                for i, ((_, expected_type), got) in enumerate(zip(param_list, arg_types)):
+                    if expected_type[0] != got or expected_type[1]:
+                        semantic_error(ident_token,f"Arg {i + 1} of '{name}' expected type {expected_type}, but got {got}")
 
-                return ret_type[0]
+                return ret_type
 
             else:
                 tipo = self.semantic.get_var_info(name, ident_token)
@@ -480,9 +484,9 @@ class Syntactic:
         self.consume(TOKEN.closeBracket)
 
         if len(element_types) == 0:
-            return "int"
+            return ("int", True)
         else:
-            return element_types[0]
+            return (element_types[0], True)
 
     #Recorte --> lambda | [ OpcInt Recorte2 ]
     def recorte(self):
@@ -604,8 +608,8 @@ class Syntactic:
             self.consume(token)
             right_type = self.uno()
 
-            if left_type != right_type:
-                semantic_error(self.read_token, f"Type mismatch in multiplication/division: {left_type} and {right_type}")
+            if left_type[0] != right_type[0] or left_type[1] or right_type[1]:
+                semantic_error(self.read_token, f"Type mismatch in operation: {left_type[0]}{'[]' if left_type[1] else ''} and {right_type[0]}{'[]' if right_type[1] else ''}")
 
             return self.resto_mult(left_type)
         else:
@@ -622,10 +626,10 @@ class Syntactic:
 
         if token == TOKEN.plus or token == TOKEN.minus:
             self.consume(token)
-            right_type = self.mult()
+            right_type = self.mult()  # (tipo, is_list)
 
-            if left_type != right_type:
-                semantic_error(self.read_token, f"Type mismatch in addition/subtraction: {left_type} and {right_type}")
+            if left_type[0] != right_type[0] or left_type[1] or right_type[1]:
+                semantic_error(self.read_token, f"Type mismatch in operation: {left_type[0]}{'[]' if left_type[1] else ''} and {right_type[0]}{'[]' if right_type[1] else ''}")
 
             return self.resto_soma(left_type)
         else:
@@ -647,13 +651,12 @@ class Syntactic:
 
         if token in operadores:
             self.consume(token)
-            right_type = self.soma()
+            right_type = self.soma()  # (tipo, is_list)
 
-            if left_type != right_type:
-                semantic_error(self.read_token,
-                               f"Incompatible types in relational operation: {left_type} and {right_type}")
+            if left_type[0] != right_type[0] or left_type[1] or right_type[1]:
+                semantic_error(self.read_token, f"Incompatible types in relational operation: {left_type[0]}{'[]' if left_type[1] else ''} and {right_type[0]}{'[]' if right_type[1] else ''}")
 
-            return self.resto_rel("int")  # Comparações sempre retornam int (boolean)
+            return ("int", False)  # Comparações sempre retornam int (boolean) não-lista
         else:
             return left_type
 
@@ -661,15 +664,14 @@ class Syntactic:
     def nao(self):
         if self.read_token[0] == TOKEN.NOT:
             self.consume(TOKEN.NOT)
-            def_type = self.nao()
+            def_type = self.nao()  # (tipo, is_list)
 
-            if type != "int":
-                semantic_error(self.read_token, f"'not' operation requires boolean (int), got {def_type}")
-                return None
+            if def_type[0] != "int" or def_type[1]:
+                semantic_error(self.read_token, f"'not' operation requires boolean (int), got {def_type[0]}{'[]' if def_type[1] else ''}")
+
+            return ("int", False)
         else:
             return self.rel()
-
-        return None
 
     #Junc --> Nao RestoJunc
     def junc(self):
@@ -680,12 +682,12 @@ class Syntactic:
     def resto_junc(self, left_type):
         if self.read_token[0] == TOKEN.AND:
             self.consume(TOKEN.AND)
-            right_type = self.nao()
+            right_type = self.nao()  # (tipo, is_list)
 
-            if left_type != "int" or right_type != "int":
-                semantic_error(self.read_token, f"Logical 'and' requires boolean (int) operands")
+            if left_type[0] != "int" or left_type[1] or right_type[0] != "int" or right_type[1]:
+                semantic_error(self.read_token, f"Logical 'and' requires boolean (int) non-list operands")
 
-            return self.resto_junc("int")
+            return self.resto_junc(("int", False))
         else:
             return left_type
 
@@ -698,11 +700,11 @@ class Syntactic:
     def resto_exp(self, left_type):
         if self.read_token[0] == TOKEN.OR:
             self.consume(TOKEN.OR)
-            right_type = self.junc()
+            right_type = self.junc()  # (tipo, is_list)
 
-            if left_type != "int" or right_type != "int":
-                semantic_error(self.read_token, f"Logical 'or' requires boolean (int) operands")
+            if left_type[0] != "int" or left_type[1] or right_type[0] != "int" or right_type[1]:
+                semantic_error(self.read_token, f"Logical 'or' requires boolean (int) non-list operands")
 
-            return self.resto_exp("int")
+            return self.resto_exp(("int", False))
         else:
             return left_type
