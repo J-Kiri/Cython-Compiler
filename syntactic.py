@@ -267,7 +267,7 @@ class Syntactic:
 
         var_type = self.semantic.get_var_info(name, ident_token)
 
-        if var_type[0] != expression_type or var_type[1] != is_list:
+        if var_type != expression_type:
             semantic_error(ident_token, f"Cannot assign {expression_type}{'[]' if is_list else ''} to variable '{name}' of type {var_type}")
 
         self.consume(TOKEN.semiColon)
@@ -420,13 +420,13 @@ class Syntactic:
             self.consume(TOKEN.ident)
 
             if self.read_token[0] == TOKEN.openBracket:
-                tipo = self.semantic.get_var_info(name, ident_token)
-                if not tipo[1]:  # tipo[1] indica se é lista
+                type = self.semantic.get_var_info(name, ident_token)
+                if not type[1]:
                     semantic_error(ident_token, f"Variable '{name}' is not a list")
                 self.consume(TOKEN.openBracket)
                 self.exp()
                 self.consume(TOKEN.closeBracket)
-                return tipo[0]  # retorno do tipo do conteúdo da lista
+                return (type[0], False)
 
             elif self.read_token[0] == TOKEN.openParenthesis:
                 self.consume(TOKEN.openParenthesis)
@@ -446,8 +446,8 @@ class Syntactic:
                 return ret_type
 
             else:
-                tipo = self.semantic.get_var_info(name, ident_token)
-                return tipo[0]
+                type = self.semantic.get_var_info(name, ident_token)
+                return type
 
         elif token == TOKEN.openParenthesis:
             self.consume(TOKEN.openParenthesis)
@@ -467,13 +467,13 @@ class Syntactic:
 
         if token == TOKEN.valInt:
             self.consume(TOKEN.valInt)
-            return "int"
+            return ("int", False)
         elif token == TOKEN.valFloat:
             self.consume(TOKEN.valFloat)
-            return "float"
+            return ("float", False)
         elif token == TOKEN.valString:
             self.consume(TOKEN.valString)
-            return "string"
+            return ("string", False)
         return None
 
     #ValLista --> [ ListaExp ]
@@ -486,7 +486,8 @@ class Syntactic:
         if len(element_types) == 0:
             return ("int", True)
         else:
-            return (element_types[0], True)
+            tipo_base, _ = element_types[0]
+            return (tipo_base, True)
 
     #Recorte --> lambda | [ OpcInt Recorte2 ]
     def recorte(self):
@@ -550,8 +551,6 @@ class Syntactic:
 
     #ListaExp --> LAMBDA | Exp OpcListaExp
     def lista_exp(self):
-        types = []
-
         if self.read_token[0] in (
                 TOKEN.NOT, TOKEN.plus, TOKEN.minus,
                 TOKEN.ident, TOKEN.openParenthesis,
@@ -559,28 +558,31 @@ class Syntactic:
                 TOKEN.openBracket
         ):
             first_type = self.exp()
-            types.append(first_type)
-            types += self.opc_lista_exp(first_type)
 
-        return types
+            if first_type[1]:
+                semantic_error(self.read_token, "Nested lists are not allowed.")
+
+            self.opc_lista_exp(first_type)
+
+            return (first_type[0], True)
+        else:
+            return ("int", True)
 
     #OpcListaExp --> LAMBDA | , Exp OpcListaExp
     def opc_lista_exp(self, expected_type):
-        types = []
-
         if self.read_token[0] == TOKEN.comma:
             self.consume(TOKEN.comma)
             def_type = self.exp()
 
-            if def_type != expected_type:
-                semantic_error(self.read_token, f"List elements must have same type: Expected {expected_type}, got {def_type}")
+            if def_type[1]:
+                semantic_error(self.read_token, "Nested lists are not allowed.")
 
-            types.append(def_type)
-            types += self.opc_lista_exp(expected_type)
+            if def_type[0] != expected_type[0]:
+                semantic_error(self.read_token, f"List elements must have same type: expected {expected_type[0]}, got {def_type[0]}")
+
+            self.opc_lista_exp(expected_type)
         else:
             pass
-
-        return types
 
     #Uno --> + Uno | - Uno | Folha
     def uno(self):
@@ -626,12 +628,25 @@ class Syntactic:
 
         if token == TOKEN.plus or token == TOKEN.minus:
             self.consume(token)
-            right_type = self.mult()  # (tipo, is_list)
+            right_type = self.mult()
 
-            if left_type[0] != right_type[0] or left_type[1] or right_type[1]:
-                semantic_error(self.read_token, f"Type mismatch in operation: {left_type[0]}{'[]' if left_type[1] else ''} and {right_type[0]}{'[]' if right_type[1] else ''}")
+            (left_type_base, left_type_list) = left_type
+            (right_type_base, right_type_list) = right_type
 
-            return self.resto_soma(left_type)
+            if left_type_list or right_type_list:
+                if not (left_type_list and right_type_list):
+                    semantic_error(self.read_token,
+                                   f"Cannot apply {'+' if token == TOKEN.plus else '-'} between list and scalar")
+                if left_type_base != right_type_base:
+                    semantic_error(self.read_token,
+                                   f"Cannot apply {'+' if token == TOKEN.plus else '-'} between lists of different base types: {left_type_base} and {right_type_base}")
+                return self.resto_soma((left_type_base, True))
+
+            if left_type_base != right_type_base:
+                semantic_error(self.read_token,
+                               f"Type mismatch in addition/subtraction: {left_type_base} and {right_type_base}")
+            return self.resto_soma((left_type_base, False))
+
         else:
             return left_type
 

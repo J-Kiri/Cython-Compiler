@@ -9,8 +9,8 @@
    foreach x = lista : {
       ordenada = [x] + ordenada;
       tam = tam + 1;
-      i = 1;
-      while (i < tam) {
+      i = 0;
+      while (i < tam-1) {
           if (ordenada[i] > ordenada[i+1]) {
              aux = ordenada[i+1];
              ordenada[i+1] = ordenada[i];
@@ -33,7 +33,7 @@ void main() {
    }
    ordenada = sort(lista);
    write("\n Lista ordenada:\n");
-   for (i=1; i<=10; i=i+1)
-      write(i, "o: ", lista[i], "\n");
+   for (i=0; i<10; i=i+1)
+      write(i+1, "o: ", ordenada[i], "\n");
    return;
 }
