@@ -189,6 +189,7 @@ class TOKEN(IntEnum):
             45: 'error',
             46: 'eof',
             47: '='
+
         }
         
         return names[token]

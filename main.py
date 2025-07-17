@@ -19,15 +19,14 @@ class Translator:
 if __name__ == '__main__':
     tests = [
         "test.cy"
-        # ,"test.cy"
-        # ,"testSliceList.cy"
-        # ,"testForWrite.cy"
-        # ,"testIfElseElif.cy"
-        # ,"testMain.cy"
-        # ,"testVecAtrib.cy"
-        # ,"testInvFuncNoPar.cy"
-        # ,"testInvIfNoPar.cy"
-        # ,"testInvSemiCol.cy"
+        ,"testSliceList.cy"
+        ,"testForWrite.cy"
+        ,"testIfElseElif.cy"
+        ,"testMain.cy"
+        ,"testVecAtrib.cy"
+        ,"testInvFuncNoPar.cy"
+        ,"testInvIfNoPar.cy"
+        ,"testInvSemiCol.cy"
     ]
 
     for test in tests:

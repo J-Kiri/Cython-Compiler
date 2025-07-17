@@ -1,5 +1,5 @@
 void main() {
     [int] v = [ ];
-    v[0] = 1;
+    v = v + [1];  # Forma correta de adicionar elemento
     return;
 }

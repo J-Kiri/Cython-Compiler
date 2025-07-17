@@ -1,25 +1,17 @@
 void main() {
     [int] lista = [1, 2, 3, 4, 5];
-    int i, j;
-    int a, b, c, d, e;
+    int i = 1;  # Inicializado com valor
+    int j = 4;  # Inicializado com valor
 
-    i = 1;
-    j = 4;
+    # Acessos normais
+    int a = lista[i];
+    int b = lista[i + 1];
 
-    a = lista[i];         # lista[1] → 2
-    b = lista[i + 1];     # lista[2] → 3
+    # Slicing
+    [int] fatia1 = lista[i:j];
+    [int] fatia2 = lista[:j];
+    [int] fatia3 = lista[i:];
+    [int] fatia4 = lista[:];
 
-    [int] fatia1 = lista[i:j];    # lista[1:4] → [2, 3, 4]
-    [int] fatia2 = lista[:j];     # lista[:4] → [1, 2, 3, 4]
-    [int] fatia3 = lista[i:];     # lista[1:] → [2, 3, 4, 5]
-    [int] fatia4 = lista[:];      # lista[:] → [1, 2, 3, 4, 5]
-
-    write("a = ", a);
-    write("b = ", b);
-    write("fatia1 = ", fatia1);
-    write("fatia2 = ", fatia2);
-    write("fatia3 = ", fatia3);
-    write("fatia4 = ", fatia4);
-
-    return;
+    # ... resto do código
 }

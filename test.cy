@@ -1,39 +1,48 @@
-# Programa exemplo na nossa linguagem Cython (mix C + Python)
-# leia 10 inteiros e os imprima em ordem crescente
+# Programa exemplo na linguagem Cython (mix C + Python)
+# Lê 10 inteiros e os imprime em ordem crescente
+
+# detalhes da linguagem:
+# ----> todas as listas iniciam em 1
+# ----> declaracoes só podem aparecer no inicio das funcoes, nao no meio
+# ----> parametros de funcoes sempre sao passados por valor (nunca por referencia)
 
 [int] sort([int] lista) {
-   [int] ordenada = [];
+   int i, j, chave;
    int tam = 0;
-   int x, i;
-   int aux;
-   foreach x = lista : {
-      ordenada = [x] + ordenada;
-      tam = tam + 1;
-      i = 0;
-      while (i < tam-1) {
-          if (ordenada[i] > ordenada[i+1]) {
-             aux = ordenada[i+1];
-             ordenada[i+1] = ordenada[i];
-             ordenada[i] = aux;
-             i = i + 1;
-          } else break;
-      }
+
+   foreach elemento = lista : {
+       tam = tam + 1;
    }
-   return ordenada;
+
+   for (i = 2; i <= tam; i = i + 1) {
+      chave = lista[i];
+      j = i - 1;
+      while (j >= 1 and lista[j] > chave) {
+         lista[j+1] = lista[j];
+         j = j - 1;
+      }
+      lista[j+1] = chave;
+   }
+   return lista;
 }
 
 void main() {
+   [int] ordenada;
+
    [int] lista = [ ];
-   [int] ordenada = [];
    int i, aux;
-   for (i=1; i<=10; i=i+1) {
-      write("Forneca o ", i, "o inteiro: ");
+   for (i = 1; i <= 10; i = i + 1) {
+      write("Forneça o ", i, "º inteiro: ");
       read(aux);
       lista = lista + [aux];
    }
+
    ordenada = sort(lista);
-   write("\n Lista ordenada:\n");
-   for (i=0; i<10; i=i+1)
-      write(i+1, "o: ", ordenada[i], "\n");
+
+   write("\nLista ordenada:\n");
+   for (i = 1; i <= 10; i = i + 1) {
+      write(i, "º: ", ordenada[i], "\n");
+   }
+
    return;
 }
